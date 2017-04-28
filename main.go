@@ -44,7 +44,7 @@ func main() {
 		} else {
 			fmt.Println("table exists")
 		}
-		form := model.EntryForm{Name: "张三", Sex: "男", School: "他妈的傻逼大学", Grade: "他妈的小学一年级", ParentPhone: "110", Remark: ""}
+		form := model.EntryForm{Name: "张三aaa", Sex: "男", School: "他妈的傻逼大学", Grade: "他妈的小学一年级", ParentPhone: "110", Remark: ""}
 		if (db.NewRecord(form)) {
 			db.Create(&form);
 		}
