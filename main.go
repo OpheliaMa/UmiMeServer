@@ -2,10 +2,19 @@ package main
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jinzhu/gorm"
-	"UmiMeServer/model"
+	//"github.com/jinzhu/gorm"
+	//"UmiMeServer/model"
 	"fmt"
+	"gopkg.in/gin-gonic/gin.v1"
+	"net"
+	"UmiMeServer/model"
+	"github.com/jinzhu/gorm"
 )
+
+type User struct {
+	Name string `form:"name" json:"name" binding:"required"`
+	Password string `form:"pwd" json:"pwd" binding:"required"`
+}
 
 func main() {
 	//fmt.Println("Hello UmiMe!");
@@ -19,9 +28,7 @@ func main() {
 	//
 	//body := `
 	//	您好：
-	//		您收到一次报名提交，姓名为：[马玥]，联系方式为[15800705345]，请及时联系。
-	//
-	//							      From Go Server.
+	// 		From Go Server.
 	//	`;
 	//
 	//fmt.Println("send email")
@@ -34,40 +41,97 @@ func main() {
 	//}
 
 
-	db, err := gorm.Open("mysql", "root:root@/UmiMe?charset=utf8&parseTime=True&loc=Local");
+	//db, err := gorm.Open("mysql", "root:root@/UmiMe?charset=utf8&parseTime=True&loc=Local");
+	//
+	//defer db.Close()
+	//
+	//if (err == nil) {
+	//	if (!db.HasTable(&model.EntryForm{})) {
+	//		db.Set("gorm:table_options", "charset=utf8").CreateTable(model.EntryForm{})
+	//	} else {
+	//		fmt.Println("table exists")
+	//	}
+	//	form := model.EntryForm{Name: "张三aaa", Sex: "男", School: "他妈的傻逼大学", Grade: "他妈的小学一年级", ParentPhone: "110", Remark: ""}
+	//	if (db.NewRecord(form)) {
+	//		db.Create(&form);
+	//	}
+	//
+	//	forms := []model.EntryForm{}
+	//	db.Find(&forms)
+	//
+	//	for _, v := range forms {
+	//		fmt.Println("Id : ", v.ID)
+	//		fmt.Println("Username : ", v.Name)
+	//		fmt.Println("Visibility : ", v.Sex)
+	//		fmt.Println("------------------")
+	//	}
+	//
+	//	fmt.Println("------------------")
+	//
+	//	form = model.EntryForm{}
+	//	db.First(&form);
+	//	fmt.Println(form.School)
+	//
+	//
+	//} else {
+	//	fmt.Println(err)
+	//}
 
+
+	db, dbErr := gorm.Open("mysql", "root:root@/UmiMe?charset=utf8&parseTime=True&loc=Local");
 	defer db.Close()
 
-	if (err == nil) {
-		if (!db.HasTable(&model.EntryForm{})) {
-			db.Set("gorm:table_options", "charset=utf8").CreateTable(model.EntryForm{})
+	router := gin.Default()
+	v1 := router.Group("/v1")
+	v1.POST("/test", func(c *gin.Context) {
+		var json User
+		err := c.BindJSON(&json)
+		if err == nil {
+			fmt.Println(json.Name, json.Password);
+			ip, _, _ := net.SplitHostPort(c.Request.RemoteAddr)
+
+			userIP := net.ParseIP(ip)
+			c.JSON(200, gin.H{"data": json, "status": "asdf", "address": userIP})
 		} else {
-			fmt.Println("table exists")
-		}
-		form := model.EntryForm{Name: "张三aaa", Sex: "男", School: "他妈的傻逼大学", Grade: "他妈的小学一年级", ParentPhone: "110", Remark: ""}
-		if (db.NewRecord(form)) {
-			db.Create(&form);
+			fmt.Println(err)
 		}
 
-		forms := []model.EntryForm{}
-		db.Find(&forms)
+	})
 
-		for _, v := range forms {
-			fmt.Println("Id : ", v.ID)
-			fmt.Println("Username : ", v.Name)
-			fmt.Println("Visibility : ", v.Sex)
-			fmt.Println("------------------")
+	v1.POST("/enroll", func(c *gin.Context) {
+		var form model.EntryForm
+		err := c.Bind(&form)
+		if err == nil {
+			if (&form != nil) {
+				if checkForm(form, c) {
+					if dbErr == nil {
+						db.Create(&form)
+						c.JSON(200, gin.H{"data": "success"})
+						return
+					}
+				}
+			}
+		} else {
+			c.JSON(400, gin.H{"error": err});
 		}
+		c.JSON(400, gin.H{"data": nil, "errorMsg": "未知错误"})
+	})
 
-		fmt.Println("------------------")
+	router.Run(":8080");
 
-		form = model.EntryForm{}
-		db.First(&form);
-		fmt.Println(form.School)
+}
 
-
-	} else {
-		fmt.Println(err)
+func checkForm(form model.EntryForm, c *gin.Context) bool {
+	if (len(form.Name) == 0) {
+		c.JSON(200, gin.H {"data": nil, "errorMsg": "Name is required"})
+		return false
+	} else if (len(form.Grade) == 0) {
+		c.JSON(200, gin.H {"data": nil, "errorMsg": "Grade is required"})
+		return false
+	} else if (len(form.ParentPhone) == 0) {
+		c.JSON(200, gin.H {"data": nil, "errorMsg": "ParentPhone is required"})
+		return false
 	}
 
+	return true;
 }

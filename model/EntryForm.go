@@ -5,10 +5,10 @@ import "github.com/jinzhu/gorm"
 type EntryForm struct {
 	gorm.Model
 
-	Name string
-	Sex string
-	School string
-	Grade string
-	ParentPhone string
+	Name string `form:"name"`
+	Sex string `form:"sex"`
+	School string `form:"school"`
+	Grade string `form:"grade"`
+	ParentPhone string `form:"parentPhone"`
 	Remark string `gorm:"type:varchar(2000)"`
 }
