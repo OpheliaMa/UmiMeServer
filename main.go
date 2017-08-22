@@ -9,10 +9,11 @@ import (
 	"net"
 	"UmiMeServer/model"
 	"github.com/jinzhu/gorm"
+	"UmiMeServer/utils"
 )
 
 type User struct {
-	Name string `form:"name" json:"name" binding:"required"`
+	Name     string `form:"name" json:"name" binding:"required"`
 	Password string `form:"pwd" json:"pwd" binding:"required"`
 }
 
@@ -39,7 +40,6 @@ func main() {
 	//} else {
 	//	fmt.Println("Send mail success!")
 	//}
-
 
 	//db, err := gorm.Open("mysql", "root:root@/UmiMe?charset=utf8&parseTime=True&loc=Local");
 	//
@@ -77,12 +77,14 @@ func main() {
 	//	fmt.Println(err)
 	//}
 
-
 	db, dbErr := gorm.Open("mysql", "root:root@/UmiMe?charset=utf8&parseTime=True&loc=Local");
 	defer db.Close()
 
 	router := gin.Default()
 	v1 := router.Group("/v1")
+
+	v1.Use(CORSMiddleware())
+
 	v1.POST("/test", func(c *gin.Context) {
 		var json User
 		err := c.BindJSON(&json)
@@ -100,36 +102,74 @@ func main() {
 
 	v1.POST("/enroll", func(c *gin.Context) {
 		var form model.EntryForm
-		err := c.Bind(&form)
+		err := c.BindJSON(&form)
 		if err == nil {
-			if (&form != nil) {
+			if &form != nil {
 				if checkForm(form, c) {
 					if dbErr == nil {
 						db.Create(&form)
-						c.JSON(200, gin.H{"data": "success"})
+						c.JSON(200, gin.H{"data": "success", "code": 0})
+						go sendEmailAfterEnroll()
 						return
 					}
+				} else {
+					return
 				}
 			}
 		} else {
-			c.JSON(400, gin.H{"error": err});
+			c.JSON(400, gin.H{"error": err, "errorMsg": "未知错误", "code": -100});
+			return
 		}
-		c.JSON(400, gin.H{"data": nil, "errorMsg": "未知错误"})
+		c.JSON(400, gin.H{"data": nil, "errorMsg": "未知错误", "code": -100})
 	})
 
 	router.Run(":8080");
+}
 
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func sendEmailAfterEnroll() {
+	user := "332114994@qq.com"
+	password := "uyblohfooprocbed"
+	host := "smtp.qq.com:587"
+	to := "332114994@qq.com;j.xuyanjun@gmail.com"
+	subject := "A Mail From Go Server."
+	body := `您好：
+	From Go Server.
+	`
+	fmt.Println("send email")
+	err := utils.SendToMail(user, password, host, to, subject, body, "text")
+	if err != nil {
+		fmt.Println("Send mail error!")
+		fmt.Println(err)
+	} else {
+		fmt.Println("Send mail success!")
+	}
 }
 
 func checkForm(form model.EntryForm, c *gin.Context) bool {
-	if (len(form.Name) == 0) {
-		c.JSON(200, gin.H {"data": nil, "errorMsg": "Name is required"})
+	if len(form.Name) == 0 {
+		c.JSON(200, gin.H{"data": nil, "errorMsg": "Name is required", "code": -1})
 		return false
-	} else if (len(form.Grade) == 0) {
-		c.JSON(200, gin.H {"data": nil, "errorMsg": "Grade is required"})
+	} else if len(form.Grade) == 0 {
+		c.JSON(200, gin.H{"data": nil, "errorMsg": "Grade is required", "code": -1})
 		return false
-	} else if (len(form.ParentPhone) == 0) {
-		c.JSON(200, gin.H {"data": nil, "errorMsg": "ParentPhone is required"})
+	} else if len(form.ParentPhone) == 0 {
+		c.JSON(200, gin.H{"data": nil, "errorMsg": "ParentPhone is required", "code": -1})
 		return false
 	}
 
